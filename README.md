@@ -1,4 +1,4 @@
-Arcane Auditor Logo
+![Arcane Auditor Logo](assets/arcane-auditor-logo.png)
 
 *A mystical code review tool for Workday Extend applications.*
 
@@ -100,16 +100,16 @@ Results appear faster than a polymorph spell — download Excel reports as neede
 📸 Screenshots
 
 **Dark Mode:**
-Desktop Interface - Dark Mode
+![Desktop Interface - Dark Mode](assets/screenshots/results-dark.png)
 
 **Light Mode:**
-Desktop Interface - Light Mode
+![Desktop Interface - Light Mode](assets/screenshots/results-light.png)
 
 **Issues View:**
-Issues View
+![Issues View](assets/screenshots/issues-dark.png)
 
 **Issues Breakdown:**
-Issues Breakdown
+![Issues Breakdown](assets/screenshots/details-dark.png)
 
 ---
 
