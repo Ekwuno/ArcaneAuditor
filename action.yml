@@ -1,0 +1,115 @@
+name: Arcane Auditor
+description: Review Workday Extend and Orchestrate source with Arcane Auditor and report findings as annotations and a job summary.
+author: Developers and Dragons
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  path:
+    description: Directories, zip files, or source files to review. Separate multiple entries with spaces or newlines.
+    required: false
+    default: "."
+  config:
+    description: Rule configuration. A bundled preset name (production-ready, development) or a path to a JSON config file in the repository.
+    required: false
+    default: ""
+  version:
+    description: Arcane Auditor release to install, without the leading "v". The action pins a sha256 for each version it knows about.
+    required: false
+    default: "2.0.0"
+  output:
+    description: Where to write the merged JSON report.
+    required: false
+    default: arcane-report.json
+  fail-on:
+    description: When to fail the step. "action" fails on ACTION findings, "advice" fails on any finding, "none" never fails. Tool errors always count as ACTION.
+    required: false
+    default: action
+  annotate:
+    description: Emit GitHub annotations and a job summary. Set to "false" if another step renders the report.
+    required: false
+    default: "true"
+  rules:
+    description: Comma-separated rule ids to run. Empty runs every enabled rule.
+    required: false
+    default: ""
+  exclude-rules:
+    description: Comma-separated rule ids to skip.
+    required: false
+    default: ""
+  files:
+    description: Comma-separated file globs to restrict which files are analyzed.
+    required: false
+    default: ""
+
+outputs:
+  report:
+    description: Path to the merged JSON report.
+    value: ${{ steps.run.outputs.report }}
+  action-count:
+    description: Number of ACTION findings.
+    value: ${{ steps.run.outputs.action-count }}
+  advice-count:
+    description: Number of ADVICE findings.
+    value: ${{ steps.run.outputs.advice-count }}
+  error-count:
+    description: Number of paths Arcane Auditor could not analyze.
+    value: ${{ steps.run.outputs.error-count }}
+  exit-code:
+    description: 1 when there are ACTION findings or tool errors, otherwise 0. Independent of fail-on.
+    value: ${{ steps.run.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Cache Arcane Auditor
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/arcane-auditor
+        key: arcane-auditor-${{ runner.os }}-${{ inputs.version }}
+
+    - name: Install Arcane Auditor
+      shell: bash
+      env:
+        ARCANE_VERSION: ${{ inputs.version }}
+        ARCANE_INSTALL_DIR: ${{ runner.temp }}/arcane-auditor
+      run: bash "${{ github.action_path }}/.github/action/install.sh"
+
+    - name: Review
+      id: run
+      shell: bash
+      env:
+        ARCANE_PATHS: ${{ inputs.path }}
+        ARCANE_CONFIG: ${{ inputs.config }}
+        ARCANE_OUTPUT: ${{ inputs.output }}
+        ARCANE_RULES: ${{ inputs.rules }}
+        ARCANE_EXCLUDE_RULES: ${{ inputs.exclude-rules }}
+        ARCANE_FILES: ${{ inputs.files }}
+      run: bash "${{ github.action_path }}/.github/action/run.sh"
+
+    - name: Annotate
+      if: inputs.annotate == 'true'
+      shell: bash
+      run: node "${{ github.action_path }}/.github/action/annotate.mjs" "${{ steps.run.outputs.report }}"
+
+    - name: Apply fail-on policy
+      shell: bash
+      env:
+        FAIL_ON: ${{ inputs.fail-on }}
+        ACTION_COUNT: ${{ steps.run.outputs.action-count }}
+        ADVICE_COUNT: ${{ steps.run.outputs.advice-count }}
+        ERROR_COUNT: ${{ steps.run.outputs.error-count }}
+      run: |
+        case "$FAIL_ON" in
+          none) exit 0 ;;
+          advice) limit=$((ACTION_COUNT + ADVICE_COUNT + ERROR_COUNT)) ;;
+          action) limit=$((ACTION_COUNT + ERROR_COUNT)) ;;
+          *) echo "::error::fail-on must be action, advice, or none (got '$FAIL_ON')"; exit 2 ;;
+        esac
+        if [ "$limit" -gt 0 ]; then
+          echo "::error title=Arcane Auditor::$ACTION_COUNT ACTION and $ADVICE_COUNT ADVICE finding(s); failing because fail-on=$FAIL_ON"
+          exit 1
+        fi
+        echo "Arcane Auditor: no findings at or above the fail-on threshold ($FAIL_ON)"

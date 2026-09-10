@@ -1,0 +1,22 @@
+{
+  "id": "sample",
+  "securityDomains": ["SampleDomain"],
+  "endPoints": [
+    {
+      "name": "getWorkers",
+      "baseUrlType": "workday-common",
+      "url": "https://api.workday.com/common/v1/workers",
+      "failOnStatusCodes": [{ "code": 400 }, { "code": 403 }]
+    }
+  ],
+  "onLoad": "<% var count = 0; console.debug(count); %>",
+  "presentation": {
+    "body": {
+      "type": "section",
+      "id": "body",
+      "children": [
+        { "type": "text", "id": "greeting", "value": "Hello" }
+      ]
+    }
+  }
+}

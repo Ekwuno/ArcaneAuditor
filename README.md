@@ -202,6 +202,26 @@ ArcaneAuditorCLI review-app myapp.zip --agent
 
 ---
 
+## 🛡️ GitHub Action
+
+Review Extend and Orchestrate source on every pull request with the bundled
+composite action. It installs the pinned CLI release (sha256 verified), runs
+`review-app`, and reports findings as annotations plus a job summary.
+
+```yaml
+- uses: actions/checkout@v5
+- uses: Developers-and-Dragons/ArcaneAuditor@v2.1.0
+  with:
+    path: apps/myApp            # dirs, zips, or files; space separated
+    config: .arcane-auditor/config.json   # optional
+    fail-on: action             # action | advice | none
+```
+
+Outputs `report`, `action-count`, `advice-count`, and `exit-code` let you
+build your own reporting on top. Full inputs, the merged report format, and
+recipes for changed-files-only and fork pull requests are in
+[docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md).
+
 ## ⚙️ Configuration
 
 Arcane Auditor uses a **layered, update-safe configuration** system:
@@ -316,6 +336,7 @@ Contributions are welcome! Submit pull requests against the `**develop`** branch
 - [Rule Documentation](docs/RULES.md)
 - [Configuration Guide](docs/CONFIGURATION.md)
 - [Custom Rules Guide](docs/CUSTOM_RULES.md)
+- [GitHub Action](docs/GITHUB_ACTION.md): review Extend source on every pull request
 - [Docker (CLI)](docker/README.md) — source-run and binary-run images for CI/containers
 
 ---

@@ -1,0 +1,81 @@
+# Proves the GitHub Action (action.yml) installs the CLI, reviews a fixture,
+# and reports counts. Runs on the action's own files and on demand.
+
+name: 🛡️ Action self-test
+
+on:
+  push:
+    paths:
+      - "action.yml"
+      - ".github/action/**"
+      - ".github/workflows/action-selftest.yml"
+      - "tests/fixtures/action/**"
+  pull_request:
+    paths:
+      - "action.yml"
+      - ".github/action/**"
+      - ".github/workflows/action-selftest.yml"
+      - "tests/fixtures/action/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Review the fixture (never fails)
+        id: audit
+        uses: ./
+        with:
+          path: tests/fixtures/action/sample
+          output: selftest/arcane-report.json
+          fail-on: none
+
+      - name: Assert expected findings
+        env:
+          REPORT: ${{ steps.audit.outputs.report }}
+          ACTION_COUNT: ${{ steps.audit.outputs.action-count }}
+          ADVICE_COUNT: ${{ steps.audit.outputs.advice-count }}
+          ERROR_COUNT: ${{ steps.audit.outputs.error-count }}
+          EXIT_CODE: ${{ steps.audit.outputs.exit-code }}
+        run: |
+          node - <<'JS'
+          const fs = require("node:fs");
+          const report = JSON.parse(fs.readFileSync(process.env.REPORT, "utf8"));
+          const rules = new Set(report.findings.map((f) => f.rule_id));
+          const expect = ["HardcodedWorkdayAPIRule", "ScriptConsoleLogRule", "ScriptVarUsageRule"];
+          const missing = expect.filter((r) => !rules.has(r));
+          const problems = [];
+          if (missing.length) problems.push(`missing expected rules: ${missing.join(", ")}`);
+          if (Number(process.env.ACTION_COUNT) < 2) problems.push(`action-count ${process.env.ACTION_COUNT} < 2`);
+          if (Number(process.env.ADVICE_COUNT) < 1) problems.push(`advice-count ${process.env.ADVICE_COUNT} < 1`);
+          if (process.env.ERROR_COUNT !== "0") problems.push(`error-count ${process.env.ERROR_COUNT} != 0`);
+          if (process.env.EXIT_CODE !== "1") problems.push(`exit-code ${process.env.EXIT_CODE} != 1`);
+          const bad = report.findings.filter((f) => !f.location.file_path.startsWith("tests/fixtures/action/sample/"));
+          if (bad.length) problems.push(`file paths not prefixed with the audited dir: ${bad.map((f) => f.location.file_path).join(", ")}`);
+          if (problems.length) { console.error(problems.join("\n")); process.exit(1); }
+          console.log(`OK: ${report.findings.length} findings, rules ${[...rules].join(", ")}`);
+          JS
+
+      - name: Fail-on policy fails the step on ACTION findings
+        id: shouldfail
+        continue-on-error: true
+        uses: ./
+        with:
+          path: tests/fixtures/action/sample
+          output: selftest/arcane-report-2.json
+          annotate: "false"
+
+      - name: Assert fail-on triggered
+        if: steps.shouldfail.outcome != 'failure'
+        run: |
+          echo "::error::expected the action to fail with fail-on=action, got '${{ steps.shouldfail.outcome }}'"
+          exit 1

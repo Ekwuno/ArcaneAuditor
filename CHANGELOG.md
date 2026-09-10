@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added: GitHub Action
+
+- **Composite GitHub Action** (`action.yml`): `uses: Developers-and-Dragons/ArcaneAuditor@<tag>` installs the pinned CLI release (sha256 verified), runs `review-app --agent` over one or more paths, and reports findings as `::error` / `::warning` annotations plus a job summary. Inputs: `path`, `config`, `version`, `output`, `fail-on`, `annotate`, `rules`, `exclude-rules`, `files`. Outputs: `report`, `action-count`, `advice-count`, `error-count`, `exit-code`. Needs only `contents: read`, so it works on fork pull requests.
+- **Merged report**: findings from every path are combined into one schema 2.0 report with `location.file_path` prefixed by the audited directory and a `runs` array (`ok` / `skipped` / `missing` / `error`). CLI exit 2 or 3 becomes a synthetic `ArcaneAuditorError` ACTION finding instead of a silent failure.
+- **Standalone scripts**: `.github/action/install.sh`, `run.sh`, `merge.mjs`, `annotate.mjs` work outside GitHub for local use.
+- **Self-test workflow**: `.github/workflows/action-selftest.yml` runs the action against `tests/fixtures/action/` on Linux and macOS.
+- **Docs**: `docs/GITHUB_ACTION.md` and a README section.
+
+---
+
 ## [v2.0.0] - 2026-05-16
 
 **Breaking schema change.** JSON output is now v2: nested `location`, new per-finding fields. v1 consumers must update.
